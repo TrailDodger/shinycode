@@ -1,0 +1,81 @@
+---
+title: "ShinyApp"
+format: html
+editor: visual
+---
+
+## Shiny App Extra Credit 
+
+```{r}
+library(shiny)
+library(ctmm)
+library(ggplot2)
+library(raster)
+library(readr)
+library(readxl)
+```
+
+```{r}
+jag <- read_xlsx("C:/Users/edodg/Documents/SchoolDocs25on/ADA/Movement ecology of the jaguar in the largest floodplain of the world, the Brazilian Pantanal.xlsx")
+```
+
+```{r}
+head(jag)
+```
+
+```{r}
+tel <- as.telemetry(jag)
+```
+
+```{r}
+tel1 <- tel[["Picole"]]
+guessed_model <- ctmm.guess(tel1, interactive = FALSE)
+
+fitted_model <- ctmm.fit(tel1, guessed_model)
+```
+
+```{r}
+ud <- akde(tel1, fitted_model)
+```
+
+```{r}
+ud_raster <- raster(ud)
+```
+
+```{r}
+ud_df <- as.data.frame(ud_raster, xy = TRUE)
+names(ud_df) <- c("x", "y", "density")
+```
+
+```{r}
+ui <- fluidPage(
+  titlePanel("Jaguar Home Range Heatmap"),
+  sidebarLayout(
+    sidebarPanel(
+      helpText("Home range estimated using AKDE via ctmm."),
+      sliderInput("alpha", "Transparency", min = 0.1, max = 1, value = 0.8)
+    ),
+    mainPanel(
+      plotOutput("hr_plot")
+    )
+  )
+)
+```
+
+```{r}
+server <- function(input, output) {
+  output$hr_plot <- renderPlot({
+    ggplot(ud_df, aes(x = x, y = y, fill = density)) +
+      geom_tile(alpha = input$alpha) +
+      scale_fill_viridis_c(option = "C") +
+      coord_equal() +
+      labs(title = "Jaguar Utilization Distribution (AKDE)",
+           x = "Longitude", y = "Latitude") +
+      theme_minimal()
+  })
+}
+```
+
+```{r}
+shinyApp(ui = ui, server = server)
+```
